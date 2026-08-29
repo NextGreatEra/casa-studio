@@ -1,19 +1,22 @@
-name: ci
+name: CI
+
 on:
   push:
     branches: [main, feat/npm-shell-fonts]
   pull_request:
+    branches: [main]
+
 jobs:
-  preflight:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - run: npm install
-      - run: npm run preflight
-      - uses: actions/upload-artifact@v4
-        with:
-          name: interior-preflight
-          path: artifacts/interior-preflight.pdf
+          node-version: "20"
+      - name: Install
+        run: npm install
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Preflight interior PDF
+        run: npm run preflight

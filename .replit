@@ -1,9 +1,14 @@
 modules = ["nodejs-24"]
+
 run = "npm run dev"
 
 [deployment]
 router = "application"
 deploymentTarget = "autoscale"
+run = ["npm", "run", "start"]
 
 [workflows]
 runButton = "Project"
+
+[agent]
+expertMode = true
