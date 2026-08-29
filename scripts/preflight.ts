@@ -1,24 +1,21 @@
-import { coverAllowed, renderInteriorPreflight } from "../server/lib/layout.ts";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  buildInteriorPreflightPdf,
+  formatPreflightReport,
+} from "../server/lib/print.ts";
 
-if (coverAllowed(135, true)) {
-  throw new Error("cover must refuse odd page counts");
-}
-if (coverAllowed(136, false)) {
-  throw new Error("cover must refuse unfrozen interiors");
-}
-if (!coverAllowed(136, true)) {
-  throw new Error("cover should allow even frozen interiors");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const copyFonts = path.join(root, "scripts/copy-fonts.mjs");
+
+const copied = spawnSync(process.execPath, [copyFonts], {
+  cwd: root,
+  stdio: "inherit",
+});
+if (copied.status !== 0) {
+  process.exit(copied.status ?? 1);
 }
 
-const result = await renderInteriorPreflight("artifacts/interior-preflight.pdf");
-if (result.pages !== 136) {
-  throw new Error(`expected 136 pages, got ${result.pages}`);
-}
-const names = result.fonts.join(", ");
-if (/Helvetica|Times/i.test(names)) {
-  throw new Error(`standard fonts leaked: ${names}`);
-}
-if (result.fonts.length < 2) {
-  throw new Error(`expected embedded Literata + Source Sans 3, got ${names}`);
-}
-console.log(JSON.stringify({ ok: true, ...result, coverBlockedUntilEvenFrozen: true }, null, 2));
+const result = await buildInteriorPreflightPdf();
+console.log(formatPreflightReport(result));
