@@ -24,7 +24,7 @@ async function main() {
   } else {
     const vite = await createViteServer({
       configFile: path.join(root, "vite.config.ts"),
-      server: { middlewareMode: true, hmr: { server: undefined } },
+      server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
