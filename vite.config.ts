@@ -19,5 +19,6 @@ export default defineConfig({
   },
   server: {
     middlewareMode: true,
+    fs: { allow: [rootDir] },
   },
 });
