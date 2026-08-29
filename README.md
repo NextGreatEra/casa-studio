@@ -27,9 +27,9 @@ npm run preflight
 
 ## Book
 
-The real book is **36 chapters + epílogo**. There are no eight Part I placeholders.
+This edition is **Parte I — La casa, chapters 1–8**. It is not the 36-chapter + epílogo / 136-page glyph proof.
 
-Trim: **7×10 in**. Interior preflight: **136 even pages**.
+Trim: **7×10 in**, white paper, no interior bleed. Interior preflight: **36 even pages** of live type (Literata + Source Sans 3 Regular, embedded). L2-only in the PDF. Chapters 9–36 stay in the manuscript.
 
 Cover wrap is untouched. There is no `cover.pdf` download and no fake 404 link. Interior download is offered only when a real file exists under `artifacts/interiors/`.
 
@@ -42,13 +42,13 @@ Cover wrap is untouched. There is no `cover.pdf` download and no fake 404 link. 
 
 Spanish glyphs: `á é í ó ú ñ ü ¿ ¡`.
 
-GitHub MCP cannot take binary font files, so this PR does not commit TTF bytes. Instead:
+The TTFs are committed in git: fonts/Literata-Regular.ttf (26104 bytes) and fonts/SourceSans3-Regular.ttf.
 
 - `@fontsource/literata` and `@fontsource/source-sans-3` power the web UI.
-- `scripts/copy-fonts.mjs` runs on `npm install` (and again from `npm run preflight`) and writes TTF into `fonts/` from the Fontsource TTF CDN (Adobe TTF fallback for Source Sans 3).
-- `npm run preflight` embeds those TTF files into the 136-page PDF with pdf-lib and prints `name` + `embedded=true`.
+- scripts/copy-fonts.mjs only verifies those two Regulars exist. It does not download fonts.
+- `npm run preflight` embeds those TTF files into the Part I PDF with pdf-lib and prints `name` + `embedded=true`.
 
-KDP Print will re-check embedding with `pdffonts` (look for `emb yes`). The preflight PDF is a numbered proof with running header *La casa de San Jacinto*. It is not a second manuscript dump. Cover wrap is not generated.
+KDP Print will re-check embedding with `pdffonts` (look for `emb yes`). The preflight PDF is the Part I live-type interior. Cover wrap is not generated. No live xAI.
 
 ## xAI
 
