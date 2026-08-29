@@ -29,7 +29,7 @@ npm run preflight
 
 This edition is **Parte I — La casa, chapters 1–8**. It is not the 36-chapter + epílogo / 136-page glyph proof.
 
-Trim: **7×10 in**, white paper, no interior bleed. Interior preflight: **36 even pages** of live type (Literata + Source Sans 3 Regular, embedded). L2-only in the PDF. Chapters 9–36 stay in the manuscript.
+Trim: **7×10 in**, white paper, no interior bleed. Interior preflight: **36 even pages** of live type (Literata + Source Sans 3 Regular, embedded). Capítulo 1 uses the labeled-card page model from the 4-page layout preview (two-column story + RELACIONES / actor-neutral LA PUERTA / EL TECHO Y LA GOTA / PLIP, then OBSERVA + PREGUNTAS). Card chrome is drawn in pdf-lib. Story rasters are not in git; optional art/ch1/courtyard.jpg embeds when present. L2-only in the PDF. Chapters 9–36 stay in the manuscript.
 
 Cover wrap is untouched. There is no `cover.pdf` download and no fake 404 link. Interior download is offered only when a real file exists under `artifacts/interiors/`.
 
