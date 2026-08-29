@@ -37,7 +37,7 @@ export const SPANISH_PROOF = "á é í ó ú ñ ü ¿ ¡";
 export const books = pgTable("books", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
-  language: text("language").notNull().default("es"),
+  language: text("language").notNull().default("en"),
   variety: text("variety").notNull().default("es-MX"),
   trim: text("trim").notNull().default("7x10"),
   status: text("status").notNull().default("setup"),
@@ -64,9 +64,19 @@ export const jobs = pgTable("jobs", {
   artifactPath: text("artifact_path"),
 });
 
+export const researchNotes = pgTable("research_notes", {
+  id: serial("id").primaryKey(),
+  bookId: integer("book_id").notNull().references(() => books.id),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  source: text("source").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+});
+
 export type Book = typeof books.$inferSelect;
 export type Chapter = typeof chapters.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
+export type ResearchNote = typeof researchNotes.$inferSelect;
 
 export function seedChapterRows(bookId: number) {
   return CHAPTER_TITLES.map((title, index) => ({

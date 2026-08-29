@@ -22,6 +22,12 @@ function isStage(value: unknown): value is Stage {
   return typeof value === "string" && (STAGES as readonly string[]).includes(value);
 }
 
+function parseId(value: string | undefined): number | null {
+  if (value == null) return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 async function runStageJob(
   stage: Stage,
   bookId: number,
@@ -85,6 +91,95 @@ export function registerRoutes(app: Express) {
     res.json(await buildWorkspaceView(store));
   });
 
+  app.get("/api/projects", async (_req, res) => {
+    const store = await getStore();
+    const [projectRows, active] = await Promise.all([
+      store.listBooks(),
+      store.getBook(),
+    ]);
+    res.json({
+      studioName: "Casa Studio",
+      activeBookId: active.id,
+      projects: projectRows.map((book) => ({
+        id: book.id,
+        title: book.title,
+        language: book.language,
+        variety: book.variety,
+        trim: book.trim,
+        status: book.status,
+      })),
+    });
+  });
+
+  app.get("/api/projects/:bookId/research", async (req: Request, res: Response) => {
+    const bookId = parseId(req.params.bookId);
+    if (bookId == null) {
+      res.status(400).json({ error: "Invalid book id" });
+      return;
+    }
+    const store = await getStore();
+    res.json(await store.listResearch(bookId));
+  });
+
+  app.post("/api/projects/:bookId/research", async (req: Request, res: Response) => {
+    const bookId = parseId(req.params.bookId);
+    if (bookId == null) {
+      res.status(400).json({ error: "Invalid book id" });
+      return;
+    }
+    const title = typeof req.body?.title === "string" ? req.body.title.trim() : "";
+    const body = typeof req.body?.body === "string" ? req.body.body.trim() : "";
+    const source = typeof req.body?.source === "string" ? req.body.source.trim() : "";
+    if (!title || !body) {
+      res.status(400).json({ error: "title and body are required" });
+      return;
+    }
+    const store = await getStore();
+    const note = await store.createResearch({ bookId, title, body, source });
+    res.status(201).json(note);
+  });
+
+  app.patch("/api/projects/:bookId/research/:id", async (req: Request, res: Response) => {
+    const bookId = parseId(req.params.bookId);
+    const id = parseId(req.params.id);
+    if (bookId == null || id == null) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    const patch: { title?: string; body?: string; source?: string } = {};
+    if (typeof req.body?.title === "string") patch.title = req.body.title.trim();
+    if (typeof req.body?.body === "string") patch.body = req.body.body.trim();
+    if (typeof req.body?.source === "string") patch.source = req.body.source.trim();
+    const store = await getStore();
+    const note = await store.updateResearch(id, patch);
+    if (!note || note.bookId !== bookId) {
+      res.status(404).json({ error: "Research note not found" });
+      return;
+    }
+    res.json(note);
+  });
+
+  app.delete("/api/projects/:bookId/research/:id", async (req: Request, res: Response) => {
+    const bookId = parseId(req.params.bookId);
+    const id = parseId(req.params.id);
+    if (bookId == null || id == null) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    const store = await getStore();
+    const existing = (await store.listResearch(bookId)).find((row) => row.id === id);
+    if (!existing) {
+      res.status(404).json({ error: "Research note not found" });
+      return;
+    }
+    await store.deleteResearch(id);
+    res.status(204).end();
+  });
+
+  app.post("/api/generate", (_req, res) => {
+    res.status(501).json({ error: "not wired" });
+  });
+
   app.get("/api/print-checklist", async (_req, res) => {
     const store = await getStore();
     const workspace = await buildWorkspaceView(store);
@@ -96,9 +191,9 @@ export function registerRoutes(app: Express) {
     const items = [
       {
         id: "book",
-        label: "One book workspace",
+        label: "Active project",
         status: "ready" as const,
-        detail: `${workspace.book.title} · ${workspace.chapters.length} capítulos (Parte I) · ${workspace.book.variety} · trim ${workspace.book.trim}`,
+        detail: `${workspace.book.title} · ${workspace.chapters.length} chapters (Part I) · ${workspace.book.variety} · trim ${workspace.book.trim}`,
       },
       {
         id: "draft",
@@ -144,7 +239,7 @@ export function registerRoutes(app: Express) {
         id: "cover",
         label: "Cover wrap",
         status: "blocked" as const,
-        detail: "Cover wrap is untouched. This harness does not generate or link cover.pdf.",
+        detail: "Cover wrap is untouched. Export does not generate cover.pdf.",
       },
     ];
 
