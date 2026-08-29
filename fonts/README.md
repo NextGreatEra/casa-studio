@@ -1,33 +1,30 @@
 # Fonts — KDP Print lock
 
-Casa Studio ships **Literata** (body) and **Source Sans 3** (UI / labels).
-Both are SIL Open Font License and include Spanish glyphs: `á é í ó ú ñ ü ¿ ¡`.
+Casa Studio ships Literata Regular (body) and Source Sans 3 Regular (UI / labels).
+Both are SIL Open Font License and include Spanish glyphs.
 
-## Why TTF are not committed (yet)
+## What is in git
 
-GitHub MCP `push_files` / `create_or_update_file` take JSON strings. Binary TTF/OTF cannot be pushed faithfully through that path. Do not treat an empty `artifacts/` folder plus an "embed" flag as a font.
+These files are committed:
 
-## What `npm install` does
+- fonts/Literata-Regular.ttf — body, 26104 bytes
+- fonts/SourceSans3-Regular.ttf — UI / labels
+- fonts/OFL-Literata.txt
+- fonts/OFL-SourceSans3.txt
 
-Dependencies:
+Bold and Semibold faces are not in this repo. Do not synthesize fake bold from Regular.
 
-- `@fontsource/literata` — web UI (woff2)
-- `@fontsource/source-sans-3` — web UI (woff2)
+## What scripts/copy-fonts.mjs does
 
-`scripts/copy-fonts.mjs` (postinstall + preflight) downloads **TTF** onto disk:
+It only verifies that the two Regular TTFs exist on disk. It does not download fonts from Fontsource, Adobe, or anywhere else. If a file is missing it throws: Commit the OFL TTF. Do not fetch.
 
-| File | Role | Source |
-| --- | --- | --- |
-| `fonts/Literata-Regular.ttf` | Body | Fontsource TTF CDN, latin 400 |
-| `fonts/Literata-Bold.ttf` | Body emphasis | Fontsource TTF CDN, latin 700 |
-| `fonts/SourceSans3-Regular.ttf` | UI / labels | Fontsource TTF CDN, latin 400; Adobe TTF fallback |
-| `fonts/SourceSans3-Semibold.ttf` | UI emphasis | Fontsource TTF CDN, latin 600; Adobe TTF fallback |
+Web UI still uses @fontsource/literata and @fontsource/source-sans-3 (woff2) for the browser. Print embedding uses the committed TTFs only.
 
-`npm run preflight` embeds those TTF files into a 136-page 7×10 PDF with pdf-lib and prints `name` + `embedded=true`.
+npm run preflight embeds those Regulars into the Part I interior PDF with pdf-lib and prints name + embedded=true.
 
-KDP Print will re-check with `pdffonts` (look for `emb yes`). This repo is a preflight proof, not a substitute for KDP's checker.
+KDP Print will re-check with pdffonts (look for emb yes). This repo is a preflight proof, not a substitute for the KDP checker.
 
 ## Licenses
 
-- `OFL-Literata.txt`
-- `OFL-SourceSans3.txt`
+- OFL-Literata.txt
+- OFL-SourceSans3.txt
