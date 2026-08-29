@@ -1,10 +1,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { BOOK_TITLE, INTERIOR_PAGE_COUNT } from "../../shared/schema.ts";
 import { PART_I_CHAPTERS, type PartIChapter } from "../../shared/part-i.ts";
+import { typesetChapter1, type Ch1Context } from "./chapter1.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -47,6 +48,7 @@ export type PreflightResult = {
   even: boolean;
   fonts: FontEmbedRow[];
   fontFile2: boolean;
+  rastersEmbedded: boolean;
   note: string;
 };
 
@@ -64,6 +66,16 @@ async function loadFontBytes(filePath: string) {
     throw new Error(
       `Missing font ${filePath}. Commit the OFL TTF into fonts/. Do not fetch.`,
     );
+  }
+}
+
+async function tryEmbedCourtyard(pdf: PDFDocument): Promise<PDFImage | null> {
+  const filePath = path.join(root, "art/ch1/courtyard.jpg");
+  try {
+    const bytes = await readFile(filePath);
+    return await pdf.embedJpg(bytes);
+  } catch {
+    return null;
   }
 }
 
@@ -99,6 +111,7 @@ async function typesetInterior(chapterStarts: number[] | null) {
   const body = await pdf.embedFont(literataBytes, { subset: true });
   const ui = await pdf.embedFont(sourceBytes, { subset: true });
   const fonts: TypesetFonts = { body, ui };
+  const courtyard = await tryEmbedCourtyard(pdf);
 
   const starts = chapterStarts ? [...chapterStarts] : [];
   const recording = chapterStarts === null;
@@ -176,7 +189,7 @@ async function typesetInterior(chapterStarts: number[] | null) {
       font: body,
       color: INK,
     });
-    page.drawText("Español mexicano · A2", {
+    page.drawText("Español mexicano · A1 alto", {
       x: MARGIN,
       y: TRIM_POINTS.height - 344,
       size: 11,
@@ -194,7 +207,7 @@ async function typesetInterior(chapterStarts: number[] | null) {
       "Esta historia está diseñada para aprender español mientras sigues una trama continua. El texto principal permanece en español y las ilustraciones, repeticiones y ejemplos ayudan a comprender el significado sin depender de traducciones.",
       "Cada capítulo presenta una situación nueva, recicla lenguaje anterior y concentra la atención en un solo patrón gramatical principal. La sección Observa resume ese patrón después de la historia; las Preguntas comprueban comprensión y recuperación.",
       "Lee primero por la historia. No intentes entender cada palabra. Después vuelve a las imágenes, a Observa y a las preguntas.",
-      "Esta edición es la Parte I: ocho capítulos para consolidar A1 alto y desarrollar A2. Los capítulos 9–36 permanecen en el manuscrito, no en este libro.",
+      "Esta edición es la Parte I: ocho capítulos para consolidar A1 alto. Los capítulos 9–36 permanecen en el manuscrito, no en este libro.",
     ];
     const max = TRIM_POINTS.width - MARGIN * 2;
     for (const para of paras) {
@@ -401,8 +414,20 @@ async function typesetInterior(chapterStarts: number[] | null) {
   drawToc();
   drawPartOpener();
   for (const chapter of PART_I_CHAPTERS) {
-    flowStory(chapter);
-    drawObservaPreguntas(chapter);
+    if (chapter.number === 1) {
+      const ch1: Ch1Context = {
+        pdf,
+        fonts,
+        addPage,
+        recording,
+        starts,
+        courtyard,
+      };
+      typesetChapter1(ch1, chapter);
+    } else {
+      flowStory(chapter);
+      drawObservaPreguntas(chapter);
+    }
   }
   if (pdf.getPageCount() % 2 !== 0) {
     const page = addPage();
@@ -410,7 +435,7 @@ async function typesetInterior(chapterStarts: number[] | null) {
     footer(page);
   }
 
-  return { pdf, starts, fonts };
+  return { pdf, starts, fonts, rastersEmbedded: courtyard !== null };
 }
 
 export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
@@ -421,11 +446,18 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
   }
 
   const first = await typesetInterior(null);
-  const { pdf, fonts } = await typesetInterior(first.starts);
+  const { pdf, fonts, rastersEmbedded } = await typesetInterior(first.starts);
   const bytes = await pdf.save({ useObjectStreams: false });
   const latin1 = Buffer.from(bytes).toString("latin1");
   const fontFile2 =
     latin1.includes("/FontFile2") || latin1.includes("/FontFile3");
+
+  if (latin1.includes("Tiene agua en el pelo")) {
+    throw new Error("v5 lock: do not print Tiene agua en el pelo.");
+  }
+  if (latin1.includes("PALABRAS DE LUGAR")) {
+    throw new Error("Do not print a Palabras recap.");
+  }
 
   const outPath = interiorPdfPath();
   await mkdir(path.dirname(outPath), { recursive: true });
@@ -461,6 +493,10 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
     );
   }
 
+  const rasterNote = rastersEmbedded
+    ? "Courtyard JPEG embedded from art/ch1/courtyard.jpg."
+    : "No chapter-1 rasters in git; card chrome is pdf-lib drawing + live type.";
+
   return {
     path: INTERIOR_PDF_RELATIVE,
     pages,
@@ -468,7 +504,8 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
     even: true,
     fonts: fontRows,
     fontFile2: true,
-    note: "Part I live type (ch 1–8). KDP Print will re-check embedding with pdffonts (look for emb yes). Cover wrap is not generated here.",
+    rastersEmbedded,
+    note: `Part I live type (ch 1–8). Ch 1 uses the labeled-card page model (RELACIONES, LA PUERTA actor-neutral, EL TECHO Y LA GOTA, PLIP, OBSERVA, PREGUNTAS). ${rasterNote} KDP Print will re-check embedding with pdffonts (look for emb yes). Cover wrap is not generated here.`,
   };
 }
 
@@ -479,6 +516,7 @@ export function formatPreflightReport(result: PreflightResult) {
     `Pages: ${result.pages} (even=${result.even})`,
     `Trim: ${result.trimInches.width}x${result.trimInches.height} in`,
     `PDF FontFile2/3 present: ${result.fontFile2}`,
+    `Ch 1 rasters embedded: ${result.rastersEmbedded}`,
     "Font embed status (pdf-lib):",
   ];
   for (const font of result.fonts) {
