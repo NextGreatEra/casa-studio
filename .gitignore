@@ -8,14 +8,9 @@ drizzle
 .local/
 .conversation/
 
-# Generated print proofs — run preflight (or layout) to materialize.
+# Generated print proofs. OFL TTF files belong in git.
 artifacts/interiors/*.pdf
-
-# TTF/OTF are materialized by install via scripts/copy-fonts.mjs.
-fonts/*.ttf
-fonts/*.otf
-fonts/*.woff
-fonts/*.woff2
+artifacts/*.pdf
 
 .DS_Store
 Thumbs.db
