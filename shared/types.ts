@@ -9,6 +9,7 @@ import {
   type Book,
   type Chapter,
   type Job,
+  type ResearchNote,
   type Stage,
 } from "./schema.ts";
 
@@ -16,6 +17,7 @@ export type {
   Book,
   Chapter,
   Job,
+  ResearchNote,
   Stage,
 };
 
@@ -46,6 +48,21 @@ export type PrintChecklistItem = {
   detail: string;
 };
 
+export type ProjectSummary = {
+  id: number;
+  title: string;
+  language: string;
+  variety: string;
+  trim: string;
+  status: string;
+};
+
+export type StudioPayload = {
+  studioName: string; // "Casa Studio"
+  projects: ProjectSummary[];
+  activeBookId: number;
+};
+
 export type WorkspacePayload = {
   book: Book;
   chapters: Chapter[];
@@ -56,4 +73,5 @@ export type WorkspacePayload = {
   coverReady: boolean;
   interiorAvailable: boolean;
   interiorPath: string | null;
+  research: ResearchNote[];
 };
