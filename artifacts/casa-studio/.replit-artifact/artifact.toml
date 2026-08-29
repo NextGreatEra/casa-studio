@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Casa Studio"
+description = "A focused publishing workspace for preparing the illustrated Mexican-Spanish reader La casa de San Jacinto through a human-reviewed production pipeline."
+version = "1.0.0"
+id = "artifacts/casa-studio"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25397
+
+[services.development]
+run = "pnpm --filter @workspace/casa-studio run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/casa-studio", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/casa-studio/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25397"
+BASE_PATH = "/"
