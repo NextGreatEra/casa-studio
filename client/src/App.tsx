@@ -144,11 +144,11 @@ export default function App() {
           </section>
           <section className="card">
             <h2>Chapters</h2>
-            <p className="meta">36 capítulos + epílogo. Titles only — no manuscript copy.</p>
+            <p className="meta">8 capítulos. Parte I — La casa. No epílogo.</p>
             <div className="chapters">
               {workspace.chapters.map((chapter) => (
                 <div className="chip" key={chapter.id}>
-                  <strong>{chapter.number === 37 ? "E" : chapter.number}</strong>
+                  <strong>{chapter.number}</strong>
                   {chapter.title}
                   <small className="meta">{chapter.status}</small>
                 </div>
@@ -235,7 +235,7 @@ export default function App() {
                 disabled={busy}
                 onClick={() => run(() => json("/api/preflight", { method: "POST" }))}
               >
-                Build 136-page preflight
+                Build Part I interior
               </button>
               {workspace.interiorAvailable ? (
                 <a className="primary" href="/api/artifacts/interior" style={{ textDecoration: "none" }}>
