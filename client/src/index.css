@@ -1,0 +1,7 @@
+:root { font-family: Georgia, "Times New Roman", serif; color: #1b1b1b; background: #f6f1e8; }
+body { margin: 0; }
+main { max-width: 920px; margin: 0 auto; padding: 24px; }
+button { margin: 0 8px 8px 0; }
+.stepper { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.stepper span { border: 1px solid #c9b99a; padding: 4px 8px; border-radius: 999px; font-size: 12px; }
+.card { background: #fff; border: 1px solid #e6dcc8; padding: 16px; margin: 12px 0; }
