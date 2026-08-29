@@ -11,12 +11,14 @@ import {
   type Book,
   type Chapter,
   type Job,
+  type ResearchNote,
   type Stage,
 } from "../shared/schema.ts";
 import { INTERIOR_PDF_RELATIVE, interiorPdfPath } from "./lib/print.ts";
 
 export type StudioStore = {
   getBook(): Promise<Book>;
+  listBooks(): Promise<Book[]>;
   listChapters(bookId: number): Promise<Chapter[]>;
   listJobs(bookId: number): Promise<Job[]>;
   updateBook(id: number, patch: Partial<Pick<Book, "status">>): Promise<Book>;
@@ -35,6 +37,18 @@ export type StudioStore = {
     id: number,
     patch: Partial<Pick<Job, "status" | "error" | "artifactPath">>,
   ): Promise<Job | undefined>;
+  listResearch(bookId: number): Promise<ResearchNote[]>;
+  createResearch(input: {
+    bookId: number;
+    title: string;
+    body: string;
+    source?: string;
+  }): Promise<ResearchNote>;
+  updateResearch(
+    id: number,
+    patch: Partial<Pick<ResearchNote, "title" | "body" | "source">>,
+  ): Promise<ResearchNote | undefined>;
+  deleteResearch(id: number): Promise<boolean>;
 };
 
 function clone<T>(value: T): T {
@@ -42,36 +56,50 @@ function clone<T>(value: T): T {
 }
 
 export function createMemoryStore(): StudioStore {
-  let bookId = 1;
   let chapterId = 1;
   let jobId = 1;
+  let researchId = 1;
 
-  const book: Book = {
-    id: bookId,
-    title: BOOK_TITLE,
-    language: BOOK_LANGUAGE,
-    variety: BOOK_VARIETY,
-    trim: BOOK_TRIM,
-    status: "setup",
-  };
+  const books: Book[] = [
+    {
+      id: 1,
+      title: BOOK_TITLE,
+      language: BOOK_LANGUAGE,
+      variety: BOOK_VARIETY,
+      trim: BOOK_TRIM,
+      status: "setup",
+    },
+  ];
 
-  const chapters: Chapter[] = seedChapterRows(book.id).map((row) => ({
+  const chapters: Chapter[] = seedChapterRows(1).map((row) => ({
     id: chapterId++,
     ...row,
   }));
   const jobs: Job[] = [];
+  const researchNotes: ResearchNote[] = [];
 
   return {
     async getBook() {
-      return clone(book);
+      const seeded = books[0];
+      if (!seeded) throw new Error("Seeded book missing");
+      return clone(seeded);
     },
-    async listChapters() {
-      return clone(chapters).sort((a, b) => a.number - b.number);
+    async listBooks() {
+      return clone(books);
     },
-    async listJobs() {
-      return clone(jobs).sort((a, b) => b.id - a.id);
+    async listChapters(bookId) {
+      return clone(chapters.filter((row) => row.bookId === bookId)).sort(
+        (a, b) => a.number - b.number,
+      );
     },
-    async updateBook(_id, patch) {
+    async listJobs(bookId) {
+      return clone(jobs.filter((row) => row.bookId === bookId)).sort(
+        (a, b) => b.id - a.id,
+      );
+    },
+    async updateBook(id, patch) {
+      const book = books.find((row) => row.id === id);
+      if (!book) throw new Error("Book not found");
       Object.assign(book, patch);
       return clone(book);
     },
@@ -99,6 +127,35 @@ export function createMemoryStore(): StudioStore {
       Object.assign(job, patch);
       return clone(job);
     },
+    async listResearch(bookId) {
+      return clone(researchNotes.filter((row) => row.bookId === bookId)).sort(
+        (a, b) => a.id - b.id,
+      );
+    },
+    async createResearch(input) {
+      const note: ResearchNote = {
+        id: researchId++,
+        bookId: input.bookId,
+        title: input.title,
+        body: input.body,
+        source: input.source ?? "",
+        createdAt: new Date().toISOString(),
+      };
+      researchNotes.push(note);
+      return clone(note);
+    },
+    async updateResearch(id, patch) {
+      const note = researchNotes.find((row) => row.id === id);
+      if (!note) return undefined;
+      Object.assign(note, patch);
+      return clone(note);
+    },
+    async deleteResearch(id) {
+      const index = researchNotes.findIndex((row) => row.id === id);
+      if (index === -1) return false;
+      researchNotes.splice(index, 1);
+      return true;
+    },
   };
 }
 
@@ -117,9 +174,10 @@ export function isCoverUnlocked(pageCountFrozen: boolean, pageCount: number) {
 
 export async function buildWorkspaceView(store: StudioStore) {
   const book = await store.getBook();
-  const [chapters, jobs] = await Promise.all([
+  const [chapters, jobs, research] = await Promise.all([
     store.listChapters(book.id),
     store.listJobs(book.id),
+    store.listResearch(book.id),
   ]);
 
   const latestByStage = new Map<string, Job>();
@@ -160,5 +218,6 @@ export async function buildWorkspaceView(store: StudioStore) {
     coverReady,
     interiorAvailable: hasInterior,
     interiorPath: hasInterior ? INTERIOR_PDF_RELATIVE : null,
+    research,
   };
 }

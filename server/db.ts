@@ -9,6 +9,7 @@ import {
   books,
   chapters,
   jobs,
+  researchNotes,
   seedChapterRows,
 } from "../shared/schema.ts";
 import { createMemoryStore, type StudioStore } from "./store.ts";
@@ -44,6 +45,9 @@ async function createPostgresStore(): Promise<StudioStore> {
   return {
     async getBook() {
       return ensureBook();
+    },
+    async listBooks() {
+      return db.select().from(books).orderBy(asc(books.id));
     },
     async listChapters(bookId) {
       return db
@@ -90,6 +94,43 @@ async function createPostgresStore(): Promise<StudioStore> {
         .where(eq(jobs.id, id))
         .returning();
       return updated[0];
+    },
+    async listResearch(bookId) {
+      return db
+        .select()
+        .from(researchNotes)
+        .where(eq(researchNotes.bookId, bookId))
+        .orderBy(asc(researchNotes.id));
+    },
+    async createResearch(input) {
+      const inserted = await db
+        .insert(researchNotes)
+        .values({
+          bookId: input.bookId,
+          title: input.title,
+          body: input.body,
+          source: input.source ?? "",
+          createdAt: new Date().toISOString(),
+        })
+        .returning();
+      const note = inserted[0];
+      if (!note) throw new Error("Failed to create research note");
+      return note;
+    },
+    async updateResearch(id, patch) {
+      const updated = await db
+        .update(researchNotes)
+        .set(patch)
+        .where(eq(researchNotes.id, id))
+        .returning();
+      return updated[0];
+    },
+    async deleteResearch(id) {
+      const deleted = await db
+        .delete(researchNotes)
+        .where(eq(researchNotes.id, id))
+        .returning();
+      return Boolean(deleted[0]);
     },
   };
 }
