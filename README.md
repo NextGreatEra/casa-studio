@@ -45,14 +45,14 @@ Spanish glyphs: `á é í ó ú ñ ü ¿ ¡`.
 GitHub MCP cannot take binary font files, so this PR does not commit TTF bytes. Instead:
 
 - `@fontsource/literata` and `@fontsource/source-sans-3` power the web UI.
-- `scripts/copy-fonts.mjs` runs on `npm install` and writes TTF into `fonts/` from the Fontsource TTF CDN (Adobe TTF fallback for Source Sans 3).
+- `scripts/copy-fonts.mjs` runs on `npm install` (and again from `npm run preflight`) and writes TTF into `fonts/` from the Fontsource TTF CDN (Adobe TTF fallback for Source Sans 3).
 - `npm run preflight` embeds those TTF files into the 136-page PDF with pdf-lib and prints `name` + `embedded=true`.
 
 KDP Print will re-check embedding with `pdffonts` (look for `emb yes`). The preflight PDF is a numbered proof with running header *La casa de San Jacinto*. It is not a second manuscript dump. Cover wrap is not generated.
 
 ## xAI
 
-`server/lib/xai.ts` reads `process.env.XAI_API_KEY` and throws `not wired`. No live calls. No OpenAI, Anthropic, Google, or Midjourney SDKs.
+`server/lib/xai.ts` reads `process.env.XAI_API_KEY` (and `XAI_API_Key` for Replit) and throws `not wired`. No live calls. No OpenAI, Anthropic, Google, or Midjourney SDKs.
 
 Add `XAI_API_KEY` later through **Replit Secrets**. Never commit the key.
 
