@@ -22,7 +22,7 @@ npm run preflight
 
 ## Environment
 
-`XAI_API_KEY` goes in Replit Secrets later. Never commit the key. `server/lib/xai.ts` is a stub and throws `not wired`. No live model calls in this PR.
+Replit Secret may be named `XAI_API_KEY` or `XAI_API_Key`. Never commit the key. `server/lib/xai.ts` accepts both and still throws `not wired` until live calls are intentionally switched on. No live model calls in this PR.
 
 ## Print lock
 
