@@ -6,7 +6,6 @@ import fontkit from "@pdf-lib/fontkit";
 import {
   BOOK_TITLE,
   INTERIOR_PAGE_COUNT,
-  SPANISH_PROOF,
 } from "../../shared/schema.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -26,10 +25,10 @@ export function interiorPdfPath() {
 
 export const FONT_FILES = {
   literataRegular: path.join(root, "fonts/Literata-Regular.ttf"),
-  literataBold: path.join(root, "fonts/Literata-Bold.ttf"),
   sourceSansRegular: path.join(root, "fonts/SourceSans3-Regular.ttf"),
-  sourceSansSemibold: path.join(root, "fonts/SourceSans3-Semibold.ttf"),
 } as const;
+
+const GLYPHS = "¿Niños en la recámara? ñáéíóúü ¡Observa!";
 
 export type FontEmbedRow = {
   role: string;
@@ -60,24 +59,8 @@ async function loadFontBytes(filePath: string) {
     return await readFile(filePath);
   } catch {
     throw new Error(
-      `Missing font ${filePath}. Run scripts/copy-fonts.mjs so TTF files land in fonts/.`,
+      `Missing font ${filePath}. Commit the OFL TTF into fonts/. Do not fetch.`,
     );
-  }
-}
-
-async function embedWithFallback(
-  pdf: PDFDocument,
-  preferredPath: string,
-  fallback: PDFFont,
-  fallbackBytes: Buffer,
-): Promise<PDFFont> {
-  try {
-    const bytes = await readFile(preferredPath);
-    return await pdf.embedFont(bytes, { subset: true });
-  } catch {
-    return fallbackBytes === undefined
-      ? fallback
-      : fallback;
   }
 }
 
@@ -88,24 +71,11 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
   const literataBytes = await loadFontBytes(FONT_FILES.literataRegular);
   const sourceBytes = await loadFontBytes(FONT_FILES.sourceSansRegular);
 
-  const literata = await pdf.embedFont(literataBytes, { subset: true });
-  const sourceSans = await pdf.embedFont(sourceBytes, { subset: true });
-  const literataBold = await embedWithFallback(
-    pdf,
-    FONT_FILES.literataBold,
-    literata,
-    literataBytes,
-  );
-  const sourceSemibold = await embedWithFallback(
-    pdf,
-    FONT_FILES.sourceSansSemibold,
-    sourceSans,
-    sourceBytes,
-  );
+  const literata: PDFFont = await pdf.embedFont(literataBytes, { subset: true });
+  const sourceSans: PDFFont = await pdf.embedFont(sourceBytes, { subset: true });
 
   const ink = rgb(0.11, 0.09, 0.07);
   const muted = rgb(0.42, 0.36, 0.31);
-  const rule = rgb(0.72, 0.64, 0.52);
 
   for (let pageNumber = 1; pageNumber <= INTERIOR_PAGE_COUNT; pageNumber += 1) {
     const page = pdf.addPage([TRIM_POINTS.width, TRIM_POINTS.height]);
@@ -114,66 +84,32 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
 
     page.drawText(BOOK_TITLE, {
       x: margin,
-      y: height - 42,
-      size: 10,
+      y: height - 48,
+      size: 12,
       font: sourceSans,
       color: muted,
     });
-    page.drawLine({
-      start: { x: margin, y: height - 50 },
-      end: { x: width - margin, y: height - 50 },
-      thickness: 0.4,
-      color: rule,
+    page.drawText(`página ${pageNumber} de ${INTERIOR_PAGE_COUNT}`, {
+      x: width - 170,
+      y: height - 48,
+      size: 11,
+      font: sourceSans,
+      color: muted,
     });
-
-    if (pageNumber === 1) {
-      page.drawText("Preflight proof", {
-        x: margin,
-        y: height - 120,
-        size: 11,
-        font: sourceSemibold,
-        color: muted,
-      });
-      page.drawText(BOOK_TITLE, {
-        x: margin,
-        y: height - 168,
-        size: 22,
-        font: literataBold,
-        color: ink,
-      });
-      page.drawText("7 x 10 in · 136 pages · even · fonts embedded", {
-        x: margin,
-        y: height - 196,
-        size: 11,
-        font: sourceSans,
-        color: muted,
-      });
-      page.drawText(
-        "Numbered blank pages for KDP Print preflight. Not a manuscript dump.",
-        {
-          x: margin,
-          y: height - 248,
-          size: 12,
-          font: literata,
-          color: ink,
-        },
-      );
-      page.drawText(`Spanish glyphs: ${SPANISH_PROOF}`, {
-        x: margin,
-        y: height - 280,
-        size: 12,
-        font: literata,
-        color: ink,
-      });
-      page.drawText("Cover wrap is untouched. This file is interior only.", {
-        x: margin,
-        y: height - 312,
-        size: 11,
-        font: sourceSans,
-        color: muted,
-      });
-    }
-
+    page.drawText(GLYPHS, {
+      x: margin,
+      y: height / 2 + 18,
+      size: 16,
+      font: literata,
+      color: ink,
+    });
+    page.drawText(GLYPHS, {
+      x: margin,
+      y: height / 2 - 18,
+      size: 14,
+      font: sourceSans,
+      color: ink,
+    });
     const footer = String(pageNumber);
     const footerWidth = sourceSans.widthOfTextAtSize(footer, 10);
     page.drawText(footer, {
@@ -185,7 +121,7 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
     });
   }
 
-  const bytes = await pdf.save();
+  const bytes = await pdf.save({ useObjectStreams: false });
   const latin1 = Buffer.from(bytes).toString("latin1");
   const fontFile2 =
     latin1.includes("/FontFile2") || latin1.includes("/FontFile3");
@@ -202,21 +138,9 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
       embedded: true,
     },
     {
-      role: "body-emphasis",
-      file: literataBold === literata ? "fonts/Literata-Regular.ttf" : "fonts/Literata-Bold.ttf",
-      name: literataBold.name,
-      embedded: true,
-    },
-    {
       role: "ui",
       file: "fonts/SourceSans3-Regular.ttf",
       name: sourceSans.name,
-      embedded: true,
-    },
-    {
-      role: "ui-emphasis",
-      file: sourceSemibold === sourceSans ? "fonts/SourceSans3-Regular.ttf" : "fonts/SourceSans3-Semibold.ttf",
-      name: sourceSemibold.name,
       embedded: true,
     },
   ];
