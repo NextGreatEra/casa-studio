@@ -35,13 +35,21 @@ const UI_SIZE = 8.5;
 
 export type Ch1Fonts = { body: PDFFont; ui: PDFFont };
 
+export type Ch1Rasters = {
+  courtyard: PDFImage;
+  puerta: PDFImage;
+  gota: PDFImage;
+  abueloEsposos: PDFImage;
+  lola: PDFImage;
+};
+
 export type Ch1Context = {
   pdf: PDFDocument;
   fonts: Ch1Fonts;
   addPage: () => PDFPage;
   recording: boolean;
   starts: number[];
-  courtyard: PDFImage | null;
+  rasters: Ch1Rasters;
 };
 
 function wrap(text: string, font: PDFFont, size: number, maxWidth: number) {
@@ -82,7 +90,7 @@ export function splitChapter1Story(story: string) {
   return {
     opener: text.slice(0, openerAt + openerMark.length).trim(),
     spread1: text.slice(openerAt + openerMark.length, s1At + spread1Mark.length).trim(),
-    spread2: text.slice(s1At + spread1Mark.length, s2At + spread2Mark.length).trim(),
+    spread2: text.slice(s1At + spread2Mark.length, s2At + spread2Mark.length).trim(),
     close: text.slice(s2At + spread2Mark.length).trim(),
   };
 }
@@ -126,6 +134,32 @@ function column() {
     cardX: MARGIN + storyW + gutter,
     cardW,
   };
+}
+
+function drawClippedImage(
+  page: PDFPage,
+  img: PDFImage,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  const scale = Math.max(w / img.width, h / img.height);
+  const dw = img.width * scale;
+  const dh = img.height * scale;
+  page.pushOperators(
+    pushGraphicsState(),
+    rectangle(x, y, w, h),
+    clip(),
+    endPath(),
+  );
+  page.drawImage(img, {
+    x: x + (w - dw) / 2,
+    y: y + (h - dh) / 2,
+    width: dw,
+    height: dh,
+  });
+  page.pushOperators(popGraphicsState());
 }
 
 function drawLabelChip(
@@ -252,9 +286,13 @@ function drawRelaciones(
   page: PDFPage,
   inner: { x: number; y: number; w: number; h: number; bottom: number },
   fonts: Ch1Fonts,
+  rasters: Ch1Rasters,
 ) {
+  const imgH = inner.h * 0.55;
+  const imgY = inner.y - imgH;
+  drawClippedImage(page, rasters.abueloEsposos, inner.x, imgY, inner.w, imgH);
   const cx = inner.x + inner.w / 2;
-  const topChip = inner.y - 36;
+  const topChip = imgY - 32;
   drawNameChip(page, "Don Rafael", cx, topChip, fonts);
   const midY = topChip - 28;
   page.drawLine({
@@ -386,12 +424,13 @@ function drawLaPuerta(
   page: PDFPage,
   inner: { x: number; y: number; w: number; h: number; bottom: number },
   fonts: Ch1Fonts,
+  puertaImg: PDFImage,
 ) {
   const doorW = Math.min(64, inner.w * 0.48);
   const doorH = 58;
   const closedX = inner.x + (inner.w - doorW) / 2;
   const closedY = inner.y - doorH - 4;
-  drawWoodenDoor(page, closedX, closedY, doorW, doorH, false);
+  drawClippedImage(page, puertaImg, closedX, closedY, doorW, doorH);
   let y = drawCaption(
     page,
     "La puerta no abre.",
@@ -403,7 +442,7 @@ function drawLaPuerta(
   );
 
   const openY = y - doorH - 10;
-  drawWoodenDoor(page, closedX, openY, doorW, doorH, true);
+  drawClippedImage(page, puertaImg, closedX, openY, doorW, doorH);
   page.drawText("CRIIIC...", {
     x: closedX + doorW - 6,
     y: openY + doorH * 0.55,
@@ -447,36 +486,14 @@ function drawTechoGota(
   page: PDFPage,
   inner: { x: number; y: number; w: number; h: number; bottom: number },
   fonts: Ch1Fonts,
+  gotaImg: PDFImage,
 ) {
+  const illH = inner.h * 0.55;
+  const illY = inner.y - illH;
+  drawClippedImage(page, gotaImg, inner.x, illY, inner.w, illH);
   const roofY = inner.y - 8;
   const roofX = inner.x + 4;
-  const roofW = inner.w - 8;
-  for (let i = 0; i < 6; i += 1) {
-    page.drawRectangle({
-      x: roofX + i * (roofW / 6),
-      y: roofY - 16,
-      width: roofW / 6 - 1.5,
-      height: 14,
-      color: TILE,
-      borderColor: WOOD_DARK,
-      borderWidth: 0.4,
-    });
-  }
-  page.drawRectangle({
-    x: roofX + 8,
-    y: roofY - 28,
-    width: roofW - 20,
-    height: 6,
-    color: WOOD,
-  });
-  const dropX = roofX + roofW * 0.55;
-  page.drawEllipse({
-    x: dropX,
-    y: roofY - 44,
-    xScale: 4,
-    yScale: 6,
-    color: DROP,
-  });
+  const dropX = inner.x + inner.w * 0.55;
   drawLabelChip(
     page,
     "el techo",
@@ -490,12 +507,12 @@ function drawTechoGota(
     page,
     "una gota",
     inner.x + inner.w - 52,
-    roofY - 58,
+    illY + 8,
     dropX,
-    roofY - 44,
+    illY + illH * 0.45,
     fonts.ui,
   );
-  let y = roofY - 78;
+  let y = illY - 12;
   y = drawCaption(
     page,
     "Del techo cae una gota.",
@@ -524,6 +541,7 @@ function drawPlipCard(
   page: PDFPage,
   inner: { x: number; y: number; w: number; h: number; bottom: number },
   fonts: Ch1Fonts,
+  gotaImg: PDFImage,
 ) {
   const plip = "PLIP";
   const pw = fonts.ui.widthOfTextAtSize(plip, 16);
@@ -534,45 +552,20 @@ function drawPlipCard(
     font: fonts.ui,
     color: RUST,
   });
+  const imgW = inner.w * 0.72;
+  const imgH = 52;
+  const imgX = inner.x + (inner.w - imgW) / 2;
+  const imgY = inner.y - 18 - 8 - imgH;
+  drawClippedImage(page, gotaImg, imgX, imgY, imgW, imgH);
   const bx = inner.x + inner.w * 0.28;
-  const by = inner.y - 78;
-  page.drawEllipse({
-    x: bx + 22,
-    y: by + 52,
-    xScale: 3.5,
-    yScale: 5,
-    color: DROP,
-  });
-  page.drawEllipse({
-    x: bx + 14,
-    y: by + 40,
-    xScale: 2.8,
-    yScale: 4,
-    color: DROP,
-  });
-  page.drawRectangle({
-    x: bx,
-    y: by,
-    width: 44,
-    height: 28,
-    color: BUCKET,
-    borderColor: rgb(0.12, 0.24, 0.36),
-    borderWidth: 0.8,
-  });
-  page.drawRectangle({
-    x: bx - 3,
-    y: by + 26,
-    width: 50,
-    height: 5,
-    color: rgb(0.16, 0.34, 0.5),
-  });
+  const by = imgY;
   drawLabelChip(
     page,
     "una gota",
     inner.x + inner.w - 54,
-    by + 36,
-    bx + 22,
-    by + 52,
+    by + 8,
+    imgX + imgW * 0.55,
+    by + imgH * 0.55,
     fonts.ui,
   );
   let y = by - 16;
@@ -641,25 +634,14 @@ function drawOpener(ctx: Ch1Context, chapter: PartIChapter, opener: string) {
     borderColor: GREEN,
     borderWidth: 0.6,
   });
-  if (ctx.courtyard) {
-    const img = ctx.courtyard;
-    const scale = Math.max(artW / img.width, artH / img.height);
-    const dw = img.width * scale;
-    const dh = img.height * scale;
-    page.pushOperators(
-      pushGraphicsState(),
-      rectangle(MARGIN, artY, artW, artH),
-      clip(),
-      endPath(),
-    );
-    page.drawImage(img, {
-      x: MARGIN + (artW - dw) / 2,
-      y: artY + (artH - dh) / 2,
-      width: dw,
-      height: dh,
-    });
-    page.pushOperators(popGraphicsState());
-  }
+  drawClippedImage(
+    page,
+    ctx.rasters.courtyard,
+    MARGIN + 1,
+    artY + 1,
+    artW - 2,
+    artH - 2,
+  );
   drawLabelChip(
     page,
     "la maleta",
@@ -710,10 +692,10 @@ function drawSpread(
     bottomCard,
     ui,
   );
-  if (topCard === "RELACIONES") drawRelaciones(page, a, ctx.fonts);
-  if (topCard === "EL TECHO Y LA GOTA") drawTechoGota(page, a, ctx.fonts);
-  if (bottomCard === "LA PUERTA") drawLaPuerta(page, b, ctx.fonts);
-  if (bottomCard === "PLIP") drawPlipCard(page, b, ctx.fonts);
+  if (topCard === "RELACIONES") drawRelaciones(page, a, ctx.fonts, ctx.rasters);
+  if (topCard === "EL TECHO Y LA GOTA") drawTechoGota(page, a, ctx.fonts, ctx.rasters.gota);
+  if (bottomCard === "LA PUERTA") drawLaPuerta(page, b, ctx.fonts, ctx.rasters.puerta);
+  if (bottomCard === "PLIP") drawPlipCard(page, b, ctx.fonts, ctx.rasters.gota);
   folioLeft(page, ctx.pdf.getPageCount(), ui);
 }
 
@@ -893,16 +875,20 @@ function drawClose(
   const slotW = preg.w * 0.26;
   const slotX = preg.x + preg.w - slotW;
   const slotH = (preg.h - 16) / 3;
+  const slotImgs = [ctx.rasters.puerta, ctx.rasters.gota, ctx.rasters.lola];
   for (let i = 0; i < 3; i += 1) {
+    const sx = slotX;
+    const sy = preg.bottom + 4 + (2 - i) * (slotH + 4);
     page.drawRectangle({
-      x: slotX,
-      y: preg.bottom + 4 + (2 - i) * (slotH + 4),
+      x: sx,
+      y: sy,
       width: slotW,
       height: slotH,
       color: rgb(0.93, 0.91, 0.86),
       borderColor: GREEN,
       borderWidth: 0.5,
     });
+    drawClippedImage(page, slotImgs[i], sx + 1, sy + 1, slotW - 2, slotH - 2);
   }
   folioLeft(page, ctx.pdf.getPageCount(), ui);
 }
