@@ -1,4 +1,5 @@
 import { integer, pgTable, serial, text } from "drizzle-orm/pg-core";
+import { CHAPTER_TITLES as PART_I_CHAPTER_TITLES } from "./part-i.ts";
 
 export const STAGES = [
   "outline",
@@ -28,8 +29,9 @@ export const BOOK_TITLE = "La casa de San Jacinto";
 export const BOOK_LANGUAGE = "es";
 export const BOOK_VARIETY = "es-MX";
 export const BOOK_TRIM = "7x10";
-export const CHAPTER_COUNT = 36;
-export const INTERIOR_PAGE_COUNT = 136;
+export const CHAPTER_COUNT = 8;
+export const INTERIOR_PAGE_COUNT = 36;
+export const CHAPTER_TITLES = PART_I_CHAPTER_TITLES;
 export const SPANISH_PROOF = "á é í ó ú ñ ü ¿ ¡";
 
 export const books = pgTable("books", {
@@ -67,25 +69,10 @@ export type Chapter = typeof chapters.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
 
 export function seedChapterRows(bookId: number) {
-  const rows: Array<{
-    bookId: number;
-    number: number;
-    title: string;
-    status: string;
-  }> = [];
-  for (let number = 1; number <= CHAPTER_COUNT; number += 1) {
-    rows.push({
-      bookId,
-      number,
-      title: `Capítulo ${number}`,
-      status: "pending",
-    });
-  }
-  rows.push({
+  return CHAPTER_TITLES.map((title, index) => ({
     bookId,
-    number: CHAPTER_COUNT + 1,
-    title: "Epílogo",
+    number: index + 1,
+    title,
     status: "pending",
-  });
-  return rows;
+  }));
 }
