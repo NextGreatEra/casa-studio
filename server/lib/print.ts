@@ -69,14 +69,42 @@ async function loadFontBytes(filePath: string) {
   }
 }
 
-async function tryEmbedCourtyard(pdf: PDFDocument): Promise<PDFImage | null> {
-  const filePath = path.join(root, "art/ch1/courtyard.jpg");
-  try {
-    const bytes = await readFile(filePath);
-    return await pdf.embedJpg(bytes);
-  } catch {
-    return null;
+export const CH1_RASTERS = {
+  courtyard: "art/ch1/courtyard.jpg",
+  puerta: "art/ch1/puerta.jpg",
+  gota: "art/ch1/gota.jpg",
+  abueloEsposos: "art/ch1/abuelo-esposos.jpg",
+  lola: "art/ch1/lola.jpg",
+} as const;
+
+export const MIN_RASTER_SHORT_EDGE = 900;
+
+export type Ch1RasterKey = keyof typeof CH1_RASTERS;
+export type Ch1Rasters = Record<Ch1RasterKey, PDFImage>;
+
+async function loadRasters(pdf: PDFDocument): Promise<Ch1Rasters> {
+  const rasters = {} as Ch1Rasters;
+  for (const key of Object.keys(CH1_RASTERS) as Ch1RasterKey[]) {
+    const rel = CH1_RASTERS[key];
+    const filePath = path.join(root, rel);
+    let bytes: Buffer;
+    try {
+      bytes = await readFile(filePath);
+    } catch {
+      throw new Error(
+        `Missing ${rel}. Commit the JPEG (GitHub web UI). Layout fails closed.`,
+      );
+    }
+    const img = await pdf.embedJpg(bytes);
+    const short = Math.min(img.width, img.height);
+    if (short < MIN_RASTER_SHORT_EDGE) {
+      throw new Error(
+        `${rel} short edge ${short}px < ${MIN_RASTER_SHORT_EDGE}.`,
+      );
+    }
+    rasters[key] = img;
   }
+  return rasters;
 }
 
 function wrap(text: string, font: PDFFont, size: number, maxWidth: number) {
@@ -111,7 +139,7 @@ async function typesetInterior(chapterStarts: number[] | null) {
   const body = await pdf.embedFont(literataBytes, { subset: true });
   const ui = await pdf.embedFont(sourceBytes, { subset: true });
   const fonts: TypesetFonts = { body, ui };
-  const courtyard = await tryEmbedCourtyard(pdf);
+  const rasters = await loadRasters(pdf);
 
   const starts = chapterStarts ? [...chapterStarts] : [];
   const recording = chapterStarts === null;
@@ -421,7 +449,7 @@ async function typesetInterior(chapterStarts: number[] | null) {
         addPage,
         recording,
         starts,
-        courtyard,
+        rasters,
       };
       typesetChapter1(ch1, chapter);
     } else {
@@ -435,7 +463,7 @@ async function typesetInterior(chapterStarts: number[] | null) {
     footer(page);
   }
 
-  return { pdf, starts, fonts, rastersEmbedded: courtyard !== null };
+  return { pdf, starts, fonts, rastersEmbedded: true };
 }
 
 export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
@@ -493,9 +521,8 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
     );
   }
 
-  const rasterNote = rastersEmbedded
-    ? "Courtyard JPEG embedded from art/ch1/courtyard.jpg."
-    : "No chapter-1 rasters in git; card chrome is pdf-lib drawing + live type.";
+  const rasterNote =
+    "Ch 1 JPEGs embedded from art/ch1 (courtyard, puerta, gota, abuelo-esposos, lola). Live labels only.";
 
   return {
     path: INTERIOR_PDF_RELATIVE,
