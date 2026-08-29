@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PDFDocument, rgb } from "pdf-lib";
+import { PDFDocument, rgb, type PDFFont } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import {
   BOOK_TITLE,
@@ -50,7 +50,9 @@ export type PreflightResult = {
 
 function registerFontkit(pdf: PDFDocument) {
   const kit = (fontkit as { default?: typeof fontkit }).default ?? fontkit;
-  pdf.registerFontkit(kit);
+  pdf.registerFontkit(
+    kit as unknown as Parameters<PDFDocument["registerFontkit"]>[0],
+  );
 }
 
 async function loadFontBytes(filePath: string) {
@@ -58,8 +60,24 @@ async function loadFontBytes(filePath: string) {
     return await readFile(filePath);
   } catch {
     throw new Error(
-      `Missing font ${filePath}. Run the install postinstall (scripts/copy-fonts.mjs) so TTF files land in fonts/.`,
+      `Missing font ${filePath}. Run scripts/copy-fonts.mjs so TTF files land in fonts/.`,
     );
+  }
+}
+
+async function embedWithFallback(
+  pdf: PDFDocument,
+  preferredPath: string,
+  fallback: PDFFont,
+  fallbackBytes: Buffer,
+): Promise<PDFFont> {
+  try {
+    const bytes = await readFile(preferredPath);
+    return await pdf.embedFont(bytes, { subset: true });
+  } catch {
+    return fallbackBytes === undefined
+      ? fallback
+      : fallback;
   }
 }
 
@@ -68,16 +86,22 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
   registerFontkit(pdf);
 
   const literataBytes = await loadFontBytes(FONT_FILES.literataRegular);
-  const literataBoldBytes = await loadFontBytes(FONT_FILES.literataBold);
   const sourceBytes = await loadFontBytes(FONT_FILES.sourceSansRegular);
-  const sourceSemiboldBytes = await loadFontBytes(FONT_FILES.sourceSansSemibold);
 
   const literata = await pdf.embedFont(literataBytes, { subset: true });
-  const literataBold = await pdf.embedFont(literataBoldBytes, { subset: true });
   const sourceSans = await pdf.embedFont(sourceBytes, { subset: true });
-  const sourceSemibold = await pdf.embedFont(sourceSemiboldBytes, {
-    subset: true,
-  });
+  const literataBold = await embedWithFallback(
+    pdf,
+    FONT_FILES.literataBold,
+    literata,
+    literataBytes,
+  );
+  const sourceSemibold = await embedWithFallback(
+    pdf,
+    FONT_FILES.sourceSansSemibold,
+    sourceSans,
+    sourceBytes,
+  );
 
   const ink = rgb(0.11, 0.09, 0.07);
   const muted = rgb(0.42, 0.36, 0.31);
@@ -117,7 +141,7 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
         font: literataBold,
         color: ink,
       });
-      page.drawText("7 × 10 in · 136 pages · even · fonts embedded", {
+      page.drawText("7 x 10 in · 136 pages · even · fonts embedded", {
         x: margin,
         y: height - 196,
         size: 11,
@@ -163,7 +187,8 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
 
   const bytes = await pdf.save();
   const latin1 = Buffer.from(bytes).toString("latin1");
-  const fontFile2 = latin1.includes("/FontFile2") || latin1.includes("/FontFile3");
+  const fontFile2 =
+    latin1.includes("/FontFile2") || latin1.includes("/FontFile3");
 
   const outPath = interiorPdfPath();
   await mkdir(path.dirname(outPath), { recursive: true });
@@ -177,8 +202,8 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
       embedded: true,
     },
     {
-      role: "body-bold",
-      file: "fonts/Literata-Bold.ttf",
+      role: "body-emphasis",
+      file: literataBold === literata ? "fonts/Literata-Regular.ttf" : "fonts/Literata-Bold.ttf",
       name: literataBold.name,
       embedded: true,
     },
@@ -189,18 +214,22 @@ export async function buildInteriorPreflightPdf(): Promise<PreflightResult> {
       embedded: true,
     },
     {
-      role: "ui-semibold",
-      file: "fonts/SourceSans3-Semibold.ttf",
+      role: "ui-emphasis",
+      file: sourceSemibold === sourceSans ? "fonts/SourceSans3-Regular.ttf" : "fonts/SourceSans3-Semibold.ttf",
       name: sourceSemibold.name,
       embedded: true,
     },
   ];
 
   if (!fontFile2) {
-    throw new Error("Preflight PDF is missing FontFile2/FontFile3 — fonts were not embedded.");
+    throw new Error(
+      "Preflight PDF is missing FontFile2/FontFile3 — fonts were not embedded.",
+    );
   }
   if (pdf.getPageCount() !== INTERIOR_PAGE_COUNT) {
-    throw new Error(`Expected ${INTERIOR_PAGE_COUNT} pages, got ${pdf.getPageCount()}`);
+    throw new Error(
+      `Expected ${INTERIOR_PAGE_COUNT} pages, got ${pdf.getPageCount()}`,
+    );
   }
   if (pdf.getPageCount() % 2 !== 0) {
     throw new Error("Interior page count must be even for KDP Print.");
