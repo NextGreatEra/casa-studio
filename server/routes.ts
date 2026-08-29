@@ -98,7 +98,7 @@ export function registerRoutes(app: Express) {
         id: "book",
         label: "One book workspace",
         status: "ready" as const,
-        detail: `${workspace.book.title} · ${workspace.chapters.length} rows (36 capítulos + epílogo) · ${workspace.book.variety} · trim ${workspace.book.trim}`,
+        detail: `${workspace.book.title} · ${workspace.chapters.length} capítulos (Parte I) · ${workspace.book.variety} · trim ${workspace.book.trim}`,
       },
       {
         id: "draft",
